@@ -1,0 +1,133 @@
+//
+//  ToDoListViewController.swift
+//  Test-task
+//
+//  Created by Вадим Дзюба on 27.08.2024.
+//
+
+import UIKit
+
+
+class ToDoListViewController: UIViewController {
+    
+    private let tableView = UITableView()
+    var tasks: [Task] = []
+    let taskStore = ToDoTaskStore.shared
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .white
+        setupNavBar()
+        setupTableView()
+        
+        fetchTasks()
+        if tasks.isEmpty {
+            loadTasksFromAPI()
+        }
+    }
+    
+    func setupTableView() {
+        view.addSubview(tableView)
+        
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        ])
+        
+        tableView.delegate = self
+        tableView.dataSource = self
+    }
+    
+    private func setupNavBar() {
+        navigationController?.navigationBar.topItem?.title = "To do list"
+        navigationController?.navigationBar.prefersLargeTitles = true
+        navigationItem.largeTitleDisplayMode = .automatic
+        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add,
+                                                            target: self,
+                                                            action: #selector(didTapAddButton))
+    }
+    
+    func fetchTasks() {
+        taskStore.fetchTasks()
+        tasks = taskStore.tasks
+        tableView.reloadData()
+    }
+    
+    func loadTasksFromAPI() {
+        taskStore.loadTasksFromAPI { [weak self] in
+            self?.fetchTasks()
+        }
+    }
+    
+    private func showNewRecordViewController() {
+        let viewControllerToPresent = NewRecordViewController()
+        viewControllerToPresent.delegate = self
+        if let sheet = viewControllerToPresent.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 24
+        }
+        present(viewControllerToPresent, animated: true, completion: nil)
+    }
+    
+    @objc
+    private func didTapAddButton(_ sender: UIBarButtonItem) {
+        showNewRecordViewController()
+    }
+    
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            //context.delete(tasks[indexPath.row])
+            //saveContext()
+            fetchTasks()
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tasks[indexPath.row].isCompleted.toggle()
+        //saveContext()
+        tableView.reloadRows(at: [indexPath], with: .automatic)
+    }
+}
+
+
+extension ToDoListViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView,
+                   editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
+        .delete
+    }
+}
+
+
+extension ToDoListViewController: UITableViewDataSource {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        tasks.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let record = tasks[indexPath.row]
+        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "NotepadCell")
+        cell.textLabel?.text = record.title
+        cell.detailTextLabel?.text = record.details
+        return cell
+    }
+    
+    func numberOfSections(in tableView: UITableView) -> Int {
+        1
+    }
+        
+    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        true
+    }
+    
+}
+
+extension ToDoListViewController: NewRecordViewControllerDelegate {
+    func add(_ record: ToDoTask) {
+        //try? dataProvider?.addRecord(record)
+        dismiss(animated: true)
+    }
+}
