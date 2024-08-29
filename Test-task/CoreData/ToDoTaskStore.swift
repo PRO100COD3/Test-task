@@ -9,6 +9,15 @@ import UIKit
 import CoreData
 
 
+struct NotepadStoreUpdate {
+    let insertedIndexes: IndexSet
+    let deletedIndexes: IndexSet
+}
+
+protocol DataProviderDelegate: AnyObject {
+    func didUpdate(_ update: NotepadStoreUpdate)
+}
+
 struct Todo: Codable {
     let id: Int
     let todo: String
@@ -23,11 +32,27 @@ struct TodoList: Codable {
     let limit: Int
 }
 
-public final class ToDoTaskStore: NSObject {
-    
+final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
+
+    weak var delegate: DataProviderDelegate?
     private let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     public static let shared = ToDoTaskStore()
     var tasks: [Task] = []
+    private var insertedIndexes: IndexSet?
+    private var deletedIndexes: IndexSet?
+    private lazy var fetchedResultsController: NSFetchedResultsController<Task> = {
+
+        let fetchRequest = NSFetchRequest<Task>(entityName: "ToDoTask")
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        
+        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
+                                                                  managedObjectContext:         context,
+                                                                  sectionNameKeyPath: nil,
+                                                                  cacheName: nil)
+        fetchedResultsController.delegate = self
+        try? fetchedResultsController.performFetch()
+        return fetchedResultsController
+    }()
     
     private override init() {}
         
@@ -56,7 +81,6 @@ public final class ToDoTaskStore: NSObject {
         }
     }
 
-    
     private func fetchTodos(completion: @escaping ([Todo]) -> Void) {
         let url = URL(string: "https://dummyjson.com/todos")!
         URLSession.shared.dataTask(with: url) { data, response, error in
@@ -73,7 +97,20 @@ public final class ToDoTaskStore: NSObject {
         }.resume()
     }
     
+    func add(title: String, details: String) {
+        let newTask = Task(context: context)
+        newTask.title = title
+        newTask.details = details
+        newTask.creationDate = Date()
+        newTask.isCompleted = false
+        saveContext()
+    }
     
+    func delete(record: NSManagedObject) {
+        context.delete(record)
+        saveContext()
+    }
+        
     func saveContext() {
         if context.hasChanges{
             do {
@@ -81,6 +118,38 @@ public final class ToDoTaskStore: NSObject {
             } catch {
                 print("Error saving context: \(error)")
             }
+        }
+    }
+}
+extension ToDoTaskStore: NSFetchedResultsControllerDelegate {
+    func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+        insertedIndexes = IndexSet()
+        deletedIndexes = IndexSet()
+    }
+
+    func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+        delegate?.didUpdate(NotepadStoreUpdate(
+                insertedIndexes: insertedIndexes!,
+                deletedIndexes: deletedIndexes!
+            )
+        )
+        insertedIndexes = nil
+        deletedIndexes = nil
+    }
+    
+    func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
+        
+        switch type {
+        case .delete:
+            if let indexPath = indexPath {
+                deletedIndexes?.insert(indexPath.item)
+            }
+        case .insert:
+            if let indexPath = newIndexPath {
+                insertedIndexes?.insert(indexPath.item)
+            }
+        default:
+            break
         }
     }
 }
