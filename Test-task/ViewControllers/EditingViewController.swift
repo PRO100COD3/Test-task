@@ -8,10 +8,10 @@
 import UIKit
 import CoreData
 
-class EditingTaskViewController: UIViewController {
+final class EditingTaskViewController: UIViewController {
     
     var task: Task?
-    let taskStore = ToDoTaskStore.shared
+    var dataProvider: ToDoTaskStore?
     
     private let titleLabel = UILabel()
     private let textField = UITextField()
@@ -124,7 +124,7 @@ class EditingTaskViewController: UIViewController {
         task.title = textField.text ?? ""
         task.details = textView.text ?? ""
         task.isCompleted = completeSwitch.isOn
-        taskStore.saveContext()
+        dataProvider?.saveContext()
         navigationController?.popViewController(animated: true)
     }
 }

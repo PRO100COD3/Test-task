@@ -4,29 +4,24 @@
 //
 //  Created by Вадим Дзюба on 27.08.2024.
 //
-
 import UIKit
 
-
-class ToDoListViewController: UIViewController {
+final class ToDoListViewController: UIViewController {
     
     let tableView = UITableView()
-    var tasks: [Task] = []
-    let taskStore = ToDoTaskStore.shared
+    private lazy var dataProvider = ToDoTaskStore(delegate: self)
     
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
+        if dataProvider.isContextEmpty(for: "Task") {
+            dataProvider.loadTasksFromAPI()
+        }
         setupNavBar()
         setupTableView()
-        taskStore.delegate = self
-        fetchTasks()
-        if tasks.isEmpty {
-            loadTasksFromAPI()
-        }
     }
     
-    func setupTableView() {
+    private func setupTableView() {
         view.addSubview(tableView)
         
         tableView.translatesAutoresizingMaskIntoConstraints = false
@@ -50,18 +45,6 @@ class ToDoListViewController: UIViewController {
                                                             action: #selector(didTapAddButton))
     }
     
-    func fetchTasks() {
-        taskStore.fetchTasks()
-        tasks = taskStore.tasks
-        tableView.reloadData()
-    }
-    
-    func loadTasksFromAPI() {
-        taskStore.loadTasksFromAPI { [weak self] in
-            self?.fetchTasks()
-        }
-    }
-    
     private func showNewRecordViewController() {
         let viewControllerToPresent = NewRecordViewController()
         viewControllerToPresent.delegate = self
@@ -77,21 +60,9 @@ class ToDoListViewController: UIViewController {
     private func didTapAddButton(_ sender: UIBarButtonItem) {
         showNewRecordViewController()
     }
-    
-    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
-        if editingStyle == .delete {
-            taskStore.delete(record: tasks[indexPath.row])
-            //fetchTasks()
-        }
-    }
-    
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        let editTaskVC = EditingTaskViewController()
-        editTaskVC.task = tasks[indexPath.row]
-        navigationController?.pushViewController(editTaskVC, animated: true)
-    }
 }
 
+// MARK: - UITableViewDelegate
 
 extension ToDoListViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView,
@@ -100,43 +71,53 @@ extension ToDoListViewController: UITableViewDelegate {
     }
 }
 
+// MARK: - UITableViewDataSource
 
 extension ToDoListViewController: UITableViewDataSource {
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        tasks.count
-    }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let record = tasks[indexPath.row]
-        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "NotepadCell")
+        guard let record = dataProvider.object(at: indexPath) else { return UITableViewCell() }
+        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "ToDoListCell")
         cell.textLabel?.text = record.title
         cell.detailTextLabel?.text = record.details
-        if (tasks[indexPath.row].isCompleted == true){
-            cell.backgroundColor = UIColor.green
-        }
+        cell.backgroundColor = record.isCompleted ? UIColor.green : UIColor.white
         return cell
     }
     
     func numberOfSections(in tableView: UITableView) -> Int {
-        1
+        dataProvider.numberOfSections
     }
-        
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        dataProvider.numberOfRowsInSection(section)
+    }
+    
     func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
         true
     }
     
-}
-
-extension ToDoListViewController: NewRecordViewControllerDelegate {
-    func add(title: String, details: String) {
-        taskStore.add(title: title, details: details)
-        dismiss(animated: true)
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            if let record = dataProvider.object(at: indexPath) {
+                dataProvider.delete(record: record)
+            }
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let editingController = EditingTaskViewController()
+        editingController.dataProvider = self.dataProvider
+        editingController.task = dataProvider.object(at: indexPath)
+        navigationController?.pushViewController(editingController, animated: true)
+        print("Cell clicked")
     }
 }
 
+// MARK: - DataProviderDelegate
+
 extension ToDoListViewController: DataProviderDelegate {
     func didUpdate(_ update: ToDoTaskStoreUpdate) {
-        tableView.performBatchUpdates {
+        tableView.performBatchUpdates({
             let insertedIndexPaths = update.insertedIndexes.map { IndexPath(item: $0, section: 0) }
             let deletedIndexPaths = update.deletedIndexes.map { IndexPath(item: $0, section: 0) }
             let updatedIndexPaths = update.updatedIndexes.map { IndexPath(item: $0, section: 0) }
@@ -144,6 +125,15 @@ extension ToDoListViewController: DataProviderDelegate {
             tableView.insertRows(at: insertedIndexPaths, with: .automatic)
             tableView.deleteRows(at: deletedIndexPaths, with: .fade)
             tableView.reloadRows(at: updatedIndexPaths, with: .automatic)
-        }
+        }, completion: nil)
+    }
+}
+
+// MARK: - NewRecordViewControllerDelegate
+
+extension ToDoListViewController: NewRecordViewControllerDelegate {
+    func add(title: String, details: String) {
+        dataProvider.add(title: title, details: details)
+        dismiss(animated: true)
     }
 }

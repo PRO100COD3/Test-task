@@ -12,7 +12,7 @@ protocol NewRecordViewControllerDelegate: AnyObject {
     func add(title: String, details: String)
 }
 
-class NewRecordViewController: UIViewController, UITextViewDelegate {
+final class NewRecordViewController: UIViewController, UITextViewDelegate {
     
     weak var delegate: NewRecordViewControllerDelegate?
     
@@ -100,7 +100,7 @@ class NewRecordViewController: UIViewController, UITextViewDelegate {
             textView.topAnchor.constraint(equalTo: bodyLabel.bottomAnchor, constant: 4),
             textView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 24),
             view.safeAreaLayoutGuide.trailingAnchor.constraint(equalTo: textView.trailingAnchor, constant: 24),
-            view.safeAreaLayoutGuide.bottomAnchor.constraint(equalTo: textView.bottomAnchor, constant: 24)
+            view.safeAreaLayoutGuide.bottomAnchor.constraint(equalTo: textView.bottomAnchor, constant: 72)
         ])
     }
     

@@ -8,6 +8,7 @@
 import UIKit
 import CoreData
 
+// MARK: - DataProviderDelegate
 
 struct ToDoTaskStoreUpdate {
     let insertedIndexes: IndexSet
@@ -18,6 +19,15 @@ struct ToDoTaskStoreUpdate {
 protocol DataProviderDelegate: AnyObject {
     func didUpdate(_ update: ToDoTaskStoreUpdate)
 }
+
+protocol DataProviderProtocol {
+    var numberOfSections: Int { get }
+    func numberOfRowsInSection(_ section: Int) -> Int
+    func object(at: IndexPath) -> Task?
+    func add(title: String, details: String)
+    func delete(record: NSManagedObject)
+}
+// MARK: - Todo Models
 
 struct Todo: Codable {
     let id: Int
@@ -33,17 +43,18 @@ struct TodoList: Codable {
     let limit: Int
 }
 
+// MARK: - ToDoTaskStore
+
 final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
     
     weak var delegate: DataProviderDelegate?
-    private let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-    public static let shared = ToDoTaskStore()
-    var tasks: [Task] = []
+    private let context: NSManagedObjectContext
     private var insertedIndexes: IndexSet?
     private var deletedIndexes: IndexSet?
     private var updatedIndexes: IndexSet?
+    
     private lazy var fetchedResultsController: NSFetchedResultsController<Task> = {
-        let fetchRequest = NSFetchRequest<Task>(entityName: "Task")
+        let fetchRequest = Task.fetchRequest()
         fetchRequest.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
         
         let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
@@ -55,18 +66,13 @@ final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
         return fetchedResultsController
     }()
     
-    private override init() {}
-    
-    func fetchTasks() {
-        let request: NSFetchRequest<Task> = Task.fetchRequest()
-        do {
-            tasks = try context.fetch(request)
-        } catch {
-            print("Error fetching tasks: \(error)")
-        }
+    init(delegate: DataProviderDelegate) {
+        let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+        self.delegate = delegate
+        self.context = context
     }
-    
-    func loadTasksFromAPI(completion: @escaping () -> Void) {
+        
+    func loadTasksFromAPI() {
         fetchTodos { todos in
             for todo in todos {
                 let newTask = Task(context: self.context)
@@ -76,9 +82,18 @@ final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
             }
             
             self.saveContext()
-            DispatchQueue.main.async {
-                completion()
-            }
+        }
+    }
+    
+    func isContextEmpty(for entityName: String) -> Bool {
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+        fetchRequest.fetchLimit = 1  
+        do {
+            let count = try context.count(for: fetchRequest)
+            return count == 0
+        } catch {
+            print("Ошибка при проверке данных в контексте: \(error)")
+            return true
         }
     }
     
@@ -98,23 +113,8 @@ final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
         }.resume()
     }
     
-    func add(title: String, details: String) {
-        let newTask = Task(context: context)
-        newTask.title = title
-        newTask.details = details
-        newTask.creationDate = Date()
-        newTask.isCompleted = false
-        saveContext()
-         
-    }
-    
-    func delete(record: NSManagedObject) {
-        context.delete(record)
-        saveContext()
-    }
-    
     func saveContext() {
-        if context.hasChanges{
+        if context.hasChanges {
             do {
                 try context.save()
             } catch {
@@ -123,6 +123,37 @@ final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
         }
     }
 }
+
+extension ToDoTaskStore: DataProviderProtocol {
+    
+    var numberOfSections: Int {
+        fetchedResultsController.sections?.count ?? 0
+    }
+    
+    func add(title: String, details: String) {
+        let newTask = Task(context: context)
+        newTask.title = title
+        newTask.details = details
+        newTask.creationDate = Date()
+        newTask.isCompleted = false
+        saveContext()
+    }
+    
+    func delete(record: NSManagedObject) {
+        context.delete(record)
+        saveContext()
+    }
+    
+    func numberOfRowsInSection(_ section: Int) -> Int {
+        fetchedResultsController.sections?[section].numberOfObjects ?? 0
+    }
+    
+    func object(at indexPath: IndexPath) -> Task? {
+        fetchedResultsController.object(at: indexPath)
+    }
+}
+
+// MARK: - NSFetchedResultsControllerDelegate
 
 extension ToDoTaskStore: NSFetchedResultsControllerDelegate {
     
@@ -135,10 +166,15 @@ extension ToDoTaskStore: NSFetchedResultsControllerDelegate {
     
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
         print("обновление закончилось")
-        guard let insertedIndexes else { return }
-        guard let deletedIndexes else { return }
-        guard let updatedIndexes else { return }
+        
+        guard let insertedIndexes = insertedIndexes,
+              let deletedIndexes = deletedIndexes,
+              let updatedIndexes = updatedIndexes else {
+            return
+        }
+        
         delegate?.didUpdate(ToDoTaskStoreUpdate(insertedIndexes: insertedIndexes, deletedIndexes: deletedIndexes, updatedIndexes: updatedIndexes))
+        
         self.insertedIndexes = nil
         self.deletedIndexes = nil
         self.updatedIndexes = nil
@@ -147,26 +183,20 @@ extension ToDoTaskStore: NSFetchedResultsControllerDelegate {
     func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
         
         switch type {
-            case .delete:
-                if let indexPath = indexPath {
-                    print("Удаление")
-                    
-                    deletedIndexes?.insert(indexPath.item)
-                }
-            case .insert:
-                if let indexPath = newIndexPath {
-                    print("Вставка")
-                    
-                    insertedIndexes?.insert(indexPath.item)
-                }
-            case .update:
-                if let indexPath = indexPath {
-                    print("Обновление")
-                    
-                    updatedIndexes?.insert(indexPath.item)
-                }
-            default:
-                break
+        case .delete:
+            if let indexPath = indexPath {
+                deletedIndexes?.insert(indexPath.item)
+            }
+        case .insert:
+            if let indexPath = newIndexPath {
+                insertedIndexes?.insert(indexPath.item)
+            }
+        case .update:
+            if let indexPath = indexPath {
+                updatedIndexes?.insert(indexPath.item)
+            }
+        default:
+            break
         }
     }
 }
