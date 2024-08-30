@@ -24,7 +24,11 @@ final class NewRecordViewController: UIViewController, UITextViewDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(tapGesture)
         view.backgroundColor = .white
+
         configureKeyboard()
         setupTitleLabel()
         setupTextField()
@@ -104,11 +108,15 @@ final class NewRecordViewController: UIViewController, UITextViewDelegate {
         ])
     }
     
+    func textViewDidChange(_ textView: UITextView) {
+        doneButton.isEnabled = !textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     @objc private func didTapDone() {
         delegate?.add(title: textField.text ?? "", details: textView.text ?? "")
     }
     
-    func textViewDidChange(_ textView: UITextView) {
-        doneButton.isEnabled = !textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
 }

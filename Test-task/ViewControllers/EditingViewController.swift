@@ -24,6 +24,9 @@ final class EditingTaskViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(tapGesture)
         setupViews()
         populateFields()
         configureKeyboard()
@@ -126,6 +129,10 @@ final class EditingTaskViewController: UIViewController {
         task.isCompleted = completeSwitch.isOn
         dataProvider?.saveContext()
         navigationController?.popViewController(animated: true)
+    }
+    
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
 }
 

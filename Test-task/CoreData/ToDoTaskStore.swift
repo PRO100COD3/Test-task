@@ -158,14 +158,13 @@ extension ToDoTaskStore: DataProviderProtocol {
 extension ToDoTaskStore: NSFetchedResultsControllerDelegate {
     
     func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-        print("началось обновление")
+        
         insertedIndexes = IndexSet()
         deletedIndexes = IndexSet()
         updatedIndexes = IndexSet()
     }
     
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-        print("обновление закончилось")
         
         guard let insertedIndexes = insertedIndexes,
               let deletedIndexes = deletedIndexes,
