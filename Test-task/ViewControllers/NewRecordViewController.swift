@@ -41,14 +41,14 @@ final class NewRecordViewController: UIViewController, UITextViewDelegate {
             doneButton
         ]
         toolbar.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview(toolbar)
-            
-            NSLayoutConstraint.activate([
-                toolbar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                toolbar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                toolbar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-                toolbar.heightAnchor.constraint(equalToConstant: 44)
-            ])
+        view.addSubview(toolbar)
+        
+        NSLayoutConstraint.activate([
+            toolbar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            toolbar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            toolbar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            toolbar.heightAnchor.constraint(equalToConstant: 44)
+        ])
     }
     
     private func setupTitleLabel() {
@@ -62,7 +62,7 @@ final class NewRecordViewController: UIViewController, UITextViewDelegate {
             view.safeAreaLayoutGuide.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 24)
         ])
     }
-
+    
     private func setupBodyLabel() {
         bodyLabel.text = "Текст"
         view.addSubview(bodyLabel)

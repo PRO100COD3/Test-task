@@ -71,7 +71,7 @@ final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
         self.delegate = delegate
         self.context = context
     }
-        
+    
     func loadTasksFromAPI() {
         fetchTodos { todos in
             for todo in todos {
@@ -183,20 +183,20 @@ extension ToDoTaskStore: NSFetchedResultsControllerDelegate {
     func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
         
         switch type {
-        case .delete:
-            if let indexPath = indexPath {
-                deletedIndexes?.insert(indexPath.item)
-            }
-        case .insert:
-            if let indexPath = newIndexPath {
-                insertedIndexes?.insert(indexPath.item)
-            }
-        case .update:
-            if let indexPath = indexPath {
-                updatedIndexes?.insert(indexPath.item)
-            }
-        default:
-            break
+            case .delete:
+                if let indexPath = indexPath {
+                    deletedIndexes?.insert(indexPath.item)
+                }
+            case .insert:
+                if let indexPath = newIndexPath {
+                    insertedIndexes?.insert(indexPath.item)
+                }
+            case .update:
+                if let indexPath = indexPath {
+                    updatedIndexes?.insert(indexPath.item)
+                }
+            default:
+                break
         }
     }
 }
