@@ -9,13 +9,14 @@ import UIKit
 import CoreData
 
 
-struct NotepadStoreUpdate {
+struct ToDoTaskStoreUpdate {
     let insertedIndexes: IndexSet
     let deletedIndexes: IndexSet
+    let updatedIndexes: IndexSet
 }
 
 protocol DataProviderDelegate: AnyObject {
-    func didUpdate(_ update: NotepadStoreUpdate)
+    func didUpdate(_ update: ToDoTaskStoreUpdate)
 }
 
 struct Todo: Codable {
@@ -33,20 +34,20 @@ struct TodoList: Codable {
 }
 
 final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
-
+    
     weak var delegate: DataProviderDelegate?
     private let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     public static let shared = ToDoTaskStore()
     var tasks: [Task] = []
     private var insertedIndexes: IndexSet?
     private var deletedIndexes: IndexSet?
+    private var updatedIndexes: IndexSet?
     private lazy var fetchedResultsController: NSFetchedResultsController<Task> = {
-
-        let fetchRequest = NSFetchRequest<Task>(entityName: "ToDoTask")
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        let fetchRequest = NSFetchRequest<Task>(entityName: "Task")
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
         
         let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
-                                                                  managedObjectContext:         context,
+                                                                  managedObjectContext: context,
                                                                   sectionNameKeyPath: nil,
                                                                   cacheName: nil)
         fetchedResultsController.delegate = self
@@ -55,7 +56,7 @@ final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
     }()
     
     private override init() {}
-        
+    
     func fetchTasks() {
         let request: NSFetchRequest<Task> = Task.fetchRequest()
         do {
@@ -64,7 +65,7 @@ final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
             print("Error fetching tasks: \(error)")
         }
     }
-        
+    
     func loadTasksFromAPI(completion: @escaping () -> Void) {
         fetchTodos { todos in
             for todo in todos {
@@ -80,7 +81,7 @@ final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
             }
         }
     }
-
+    
     private func fetchTodos(completion: @escaping ([Todo]) -> Void) {
         let url = URL(string: "https://dummyjson.com/todos")!
         URLSession.shared.dataTask(with: url) { data, response, error in
@@ -104,13 +105,14 @@ final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
         newTask.creationDate = Date()
         newTask.isCompleted = false
         saveContext()
+         
     }
     
     func delete(record: NSManagedObject) {
         context.delete(record)
         saveContext()
     }
-        
+    
     func saveContext() {
         if context.hasChanges{
             do {
@@ -121,35 +123,50 @@ final class ToDoTaskStore: NSObject, NewRecordViewControllerDelegate {
         }
     }
 }
+
 extension ToDoTaskStore: NSFetchedResultsControllerDelegate {
+    
     func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+        print("началось обновление")
         insertedIndexes = IndexSet()
         deletedIndexes = IndexSet()
+        updatedIndexes = IndexSet()
     }
-
+    
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-        delegate?.didUpdate(NotepadStoreUpdate(
-                insertedIndexes: insertedIndexes!,
-                deletedIndexes: deletedIndexes!
-            )
-        )
-        insertedIndexes = nil
-        deletedIndexes = nil
+        print("обновление закончилось")
+        guard let insertedIndexes else { return }
+        guard let deletedIndexes else { return }
+        guard let updatedIndexes else { return }
+        delegate?.didUpdate(ToDoTaskStoreUpdate(insertedIndexes: insertedIndexes, deletedIndexes: deletedIndexes, updatedIndexes: updatedIndexes))
+        self.insertedIndexes = nil
+        self.deletedIndexes = nil
+        self.updatedIndexes = nil
     }
     
     func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
         
         switch type {
-        case .delete:
-            if let indexPath = indexPath {
-                deletedIndexes?.insert(indexPath.item)
-            }
-        case .insert:
-            if let indexPath = newIndexPath {
-                insertedIndexes?.insert(indexPath.item)
-            }
-        default:
-            break
+            case .delete:
+                if let indexPath = indexPath {
+                    print("Удаление")
+                    
+                    deletedIndexes?.insert(indexPath.item)
+                }
+            case .insert:
+                if let indexPath = newIndexPath {
+                    print("Вставка")
+                    
+                    insertedIndexes?.insert(indexPath.item)
+                }
+            case .update:
+                if let indexPath = indexPath {
+                    print("Обновление")
+                    
+                    updatedIndexes?.insert(indexPath.item)
+                }
+            default:
+                break
         }
     }
 }

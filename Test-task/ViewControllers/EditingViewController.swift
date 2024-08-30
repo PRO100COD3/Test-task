@@ -10,8 +10,8 @@ import CoreData
 
 class EditingTaskViewController: UIViewController {
     
-    weak var delegate: ToDoListViewController?
-    var task: Task = Task.init()
+    var task: Task?
+    let taskStore = ToDoTaskStore.shared
     
     private let titleLabel = UILabel()
     private let textField = UITextField()
@@ -113,17 +113,18 @@ class EditingTaskViewController: UIViewController {
     }
     
     private func populateFields() {
+        guard let task else { return }
         textField.text = task.title
         textView.text = task.details
         completeSwitch.isOn = task.isCompleted
     }
     
     @objc private func didTapSave() {
+        guard let task else { return }
         task.title = textField.text ?? ""
         task.details = textView.text ?? ""
         task.isCompleted = completeSwitch.isOn
-        delegate?.taskStore.saveContext()
-        delegate?.fetchTasks()
+        taskStore.saveContext()
         navigationController?.popViewController(animated: true)
     }
 }

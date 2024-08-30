@@ -40,8 +40,15 @@ class NewRecordViewController: UIViewController, UITextViewDelegate {
             UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
             doneButton
         ]
-        toolbar.sizeToFit()
-        textView.inputAccessoryView = toolbar
+        toolbar.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(toolbar)
+            
+            NSLayoutConstraint.activate([
+                toolbar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                toolbar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                toolbar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+                toolbar.heightAnchor.constraint(equalToConstant: 44)
+            ])
     }
     
     private func setupTitleLabel() {

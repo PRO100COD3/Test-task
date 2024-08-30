@@ -10,7 +10,7 @@ import UIKit
 
 class ToDoListViewController: UIViewController {
     
-    private let tableView = UITableView()
+    let tableView = UITableView()
     var tasks: [Task] = []
     let taskStore = ToDoTaskStore.shared
     
@@ -19,7 +19,7 @@ class ToDoListViewController: UIViewController {
         view.backgroundColor = .white
         setupNavBar()
         setupTableView()
-        
+        taskStore.delegate = self
         fetchTasks()
         if tasks.isEmpty {
             loadTasksFromAPI()
@@ -81,14 +81,13 @@ class ToDoListViewController: UIViewController {
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
             taskStore.delete(record: tasks[indexPath.row])
-            fetchTasks()
+            //fetchTasks()
         }
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let editTaskVC = EditingTaskViewController()
         editTaskVC.task = tasks[indexPath.row]
-        editTaskVC.delegate = self
         navigationController?.pushViewController(editTaskVC, animated: true)
     }
 }
@@ -131,18 +130,20 @@ extension ToDoListViewController: UITableViewDataSource {
 extension ToDoListViewController: NewRecordViewControllerDelegate {
     func add(title: String, details: String) {
         taskStore.add(title: title, details: details)
-        fetchTasks()
         dismiss(animated: true)
     }
 }
 
 extension ToDoListViewController: DataProviderDelegate {
-    func didUpdate(_ update: NotepadStoreUpdate) {
+    func didUpdate(_ update: ToDoTaskStoreUpdate) {
         tableView.performBatchUpdates {
             let insertedIndexPaths = update.insertedIndexes.map { IndexPath(item: $0, section: 0) }
             let deletedIndexPaths = update.deletedIndexes.map { IndexPath(item: $0, section: 0) }
+            let updatedIndexPaths = update.updatedIndexes.map { IndexPath(item: $0, section: 0) }
+            
             tableView.insertRows(at: insertedIndexPaths, with: .automatic)
             tableView.deleteRows(at: deletedIndexPaths, with: .fade)
+            tableView.reloadRows(at: updatedIndexPaths, with: .automatic)
         }
     }
 }
